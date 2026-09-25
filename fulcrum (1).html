@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fulcrum — Prediction Markets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --ink:#12151C; --ink2:#191D27; --line:#2A2F3A; --bone:#EDEAE2; --bone-dim:#9AA0AE;
+  --yes:#E8A33D; --no:#5B7A9D; --yes-bg:rgba(232,163,61,.12); --no-bg:rgba(91,122,157,.14);
+  --pad-t:env(safe-area-inset-top,0px); --pad-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--bone);font-family:'Inter',sans-serif;padding-top:var(--pad-t);padding-bottom:var(--pad-b);min-height:100%}
+h1,h2,h3,.num{font-family:'Archivo',sans-serif}
+::-webkit-scrollbar{height:6px;width:6px}::-webkit-scrollbar-thumb{background:var(--line)}
+header{position:sticky;top:0;padding-top:calc(14px + var(--pad-t));background:rgba(18,21,28,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:10}
+.hwrap{display:flex;align-items:center;gap:20px;padding:0 20px 14px;max-width:1100px;margin:0 auto;flex-wrap:wrap}
+.logo{font-weight:900;font-size:22px;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;background:var(--yes);border-radius:50%;box-shadow:0 0 0 3px var(--yes-bg)}
+nav{display:flex;gap:4px;flex:1;overflow-x:auto}
+nav button{background:none;border:none;color:var(--bone-dim);font:500 14px 'Inter';padding:7px 12px;border-radius:20px;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--ink2);color:var(--bone)}
+.bal{font-family:'Archivo';font-weight:700;font-size:15px;background:var(--ink2);border:1px solid var(--line);padding:8px 14px;border-radius:20px;cursor:pointer}
+.bal span{color:var(--yes)}
+main{max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:18px}
+.card{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .15s}
+.card:hover{border-color:#3a4152}
+.card .cat{font-size:11px;color:var(--bone-dim);text-transform:uppercase;letter-spacing:.06em}
+.card h3{font-size:16px;font-weight:600;margin:8px 0 14px;line-height:1.3;font-family:'Inter'}
+.probrow{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.probrow .num{font-size:28px;font-weight:900;color:var(--yes)}
+.bar{height:6px;background:var(--no-bg);border-radius:4px;overflow:hidden;margin-bottom:10px}
+.bar i{display:block;height:100%;background:var(--yes)}
+.card footer{display:flex;justify-content:space-between;font-size:12px;color:var(--bone-dim)}
+.searchrow{display:flex;gap:10px;align-items:center}
+.searchrow input{flex:1;background:var(--ink2);border:1px solid var(--line);color:var(--bone);padding:10px 14px;border-radius:8px;font:14px 'Inter'}
+.btn{background:var(--yes);color:#1a1204;border:none;padding:10px 16px;border-radius:8px;font:700 14px 'Archivo';cursor:pointer}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--bone)}
+.back{color:var(--bone-dim);background:none;border:none;font:14px 'Inter';cursor:pointer;margin-bottom:16px}
+.dtitle{font-size:26px;font-weight:700;line-height:1.25;max-width:640px;margin-bottom:16px}
+.dgrid{display:grid;grid-template-columns:1.4fr 1fr;gap:24px}
+@media(max-width:760px){.dgrid{grid-template-columns:1fr}}
+.panel{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:18px}
+.chartbig .num{font-size:42px;font-weight:900;color:var(--yes)}
+svg.chart{width:100%;height:160px;margin-top:10px}
+.trade h4{font-size:13px;color:var(--bone-dim);margin-bottom:10px;font-weight:500}
+.side{display:flex;gap:8px;margin-bottom:14px}
+.side button{flex:1;padding:12px;border-radius:8px;border:1px solid var(--line);background:none;font:700 14px 'Archivo';cursor:pointer;color:var(--bone-dim)}
+.side button.yesOn{background:var(--yes-bg);border-color:var(--yes);color:var(--yes)}
+.side button.noOn{background:var(--no-bg);border-color:var(--no);color:var(--no)}
+.amtrow{display:flex;gap:8px;margin-bottom:10px}
+.amtrow button{background:var(--ink);border:1px solid var(--line);color:var(--bone-dim);padding:6px 10px;border-radius:6px;font:12px 'Inter';cursor:pointer}
+.trade input[type=number]{width:100%;background:var(--ink);border:1px solid var(--line);color:var(--bone);font-size:24px;font-weight:700;padding:12px;border-radius:8px;margin-bottom:12px;font-family:'Archivo'}
+.tradesum{display:flex;justify-content:space-between;font-size:13px;color:var(--bone-dim);margin-bottom:14px}
+.orderbook table{width:100%;font-size:13px;border-collapse:collapse}
+.orderbook td{padding:4px 0;border-bottom:1px solid var(--line)}
+.comments textarea{width:100%;background:var(--ink);border:1px solid var(--line);color:var(--bone);padding:10px;border-radius:8px;font:14px 'Inter';margin-bottom:8px;resize:vertical;min-height:50px}
+.comment{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.comment span{color:var(--bone-dim);font-size:12px}
+.postable{width:100%;border-collapse:collapse;margin-top:14px}
+.postable th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--bone-dim);padding:8px 10px;border-bottom:1px solid var(--line)}
+.postable td{padding:12px 10px;border-bottom:1px solid var(--line);font-size:14px}
+.pos-yes{color:var(--yes)}.pos-no{color:var(--no)}
+.up{color:#7BC67E}.down{color:#D9736C}
+.lb-row{display:flex;justify-content:space-between;padding:12px 10px;border-bottom:1px solid var(--line);font-size:14px}
+.lb-row .rank{color:var(--bone-dim);width:30px;display:inline-block}
+.form label{display:block;font-size:12px;color:var(--bone-dim);margin:14px 0 6px}
+.form input,.form select,.form textarea{width:100%;background:var(--ink);border:1px solid var(--line);color:var(--bone);padding:10px;border-radius:8px;font:14px 'Inter'}
+.toast{position:fixed;bottom:calc(24px + var(--pad-b));left:50%;transform:translateX(-50%);background:var(--yes);color:#1a1204;padding:12px 20px;border-radius:8px;font:700 14px 'Archivo';opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+.empty{color:var(--bone-dim);padding:30px 0;text-align:center;font-size:14px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-bg.on{display:flex}
+.modal{background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:24px;width:100%;max-width:360px}
+.modal h3{margin-bottom:14px}
+.modal .row{display:flex;gap:8px;margin-top:14px}
+.tabbtn{background:none;border:none;color:var(--bone-dim);padding:6px 0;margin-right:16px;font:600 13px 'Inter';cursor:pointer;border-bottom:2px solid transparent}
+.tabbtn.on{color:var(--bone);border-color:var(--yes)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div class="logo"><span class="dot"></span>Fulcrum</div>
+    <nav id="nav"></nav>
+    <div class="bal" id="balBtn">Sign in</div>
+  </div>
+</header>
+
+<main>
+  <div class="view on" id="view-markets">
+    <div class="searchrow">
+      <input id="search" placeholder="Search markets…">
+      <button class="btn ghost" id="newMarketBtn" style="display:none" onclick="showView('create')">+ New market</button>
+    </div>
+    <div class="grid" id="marketGrid"></div>
+  </div>
+  <div class="view" id="view-detail"></div>
+  <div class="view" id="view-portfolio"></div>
+  <div class="view" id="view-leaderboard"></div>
+  <div class="view" id="view-create"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="authModal">
+  <div class="modal">
+    <div><span class="tabbtn on" id="tabIn" onclick="setAuthTab('in')">Sign in</span><span class="tabbtn" id="tabUp" onclick="setAuthTab('up')">Sign up</span></div>
+    <h3 id="authTitle" style="margin-top:10px">Sign in to Fulcrum</h3>
+    <input class="form-input" id="authEmail" placeholder="Email" style="width:100%;background:var(--ink);border:1px solid var(--line);color:var(--bone);padding:10px;border-radius:8px;margin-bottom:8px">
+    <input class="form-input" id="authPass" type="password" placeholder="Password" style="width:100%;background:var(--ink);border:1px solid var(--line);color:var(--bone);padding:10px;border-radius:8px">
+    <div class="row"><button class="btn" style="flex:1" onclick="doAuth()" id="authSubmit">Sign in</button><button class="btn ghost" onclick="closeAuth()">Cancel</button></div>
+  </div>
+</div>
+
+<script>
+/* ====== FILL THESE IN FROM YOUR SUPABASE PROJECT SETTINGS → API ====== */
+const SUPABASE_URL = "https://vcfigoxjksfrwkqvfedl.supabase.co/rest/v1/";
+const SUPABASE_ANON_KEY = "sb_publishable_CSL5koXpSFQA6spKpW-sCw_i0iTL-nC";
+const ADMIN_EMAIL = "gabrielgornstein@gmail.com"; // must match the email in supabase-setup.sql
+/* ====================================================================== */
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const CATS=["All","Politics","Crypto","Sports","Tech","Culture"];
+let markets=[], user=null, profile=null, activeCat="All", activeView="markets", authMode='in', tradeSide='yes', currentMarketId=null;
+
+async function init(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(session) await onLogin(session.user);
+  await loadMarkets();
+  sb.channel('markets-changes').on('postgres_changes',{event:'*',schema:'public',table:'markets'}, payload=>{
+    const idx=markets.findIndex(m=>m.id===payload.new.id);
+    if(idx>-1) markets[idx]=payload.new; else markets.unshift(payload.new);
+    if(activeView==='markets') renderMarkets();
+    if(activeView==='detail' && currentMarketId===payload.new.id) renderDetail(currentMarketId);
+  }).subscribe();
+  showView('markets');
+}
+async function loadMarkets(){
+  const {data,error} = await sb.from('markets').select('*').order('created_at',{ascending:true});
+  if(!error) markets=data||[];
+}
+async function onLogin(u){
+  user=u;
+  let {data} = await sb.from('profiles').select('*').eq('id',u.id).single();
+  if(!data){
+    await sb.from('profiles').insert({id:u.id, email:u.email, balance:1000});
+    ({data} = await sb.from('profiles').select('*').eq('id',u.id).single());
+  }
+  profile=data;
+  document.getElementById('balBtn').innerHTML = `$<span>${Math.round(profile.balance)}</span>`;
+  document.getElementById('newMarketBtn').style.display = (u.email===ADMIN_EMAIL) ? '' : 'none';
+}
+function requireLogin(){ if(!user){ openAuth(); return false; } return true; }
+
+/* auth modal */
+function openAuth(){ document.getElementById('authModal').classList.add('on'); }
+function closeAuth(){ document.getElementById('authModal').classList.remove('on'); }
+function setAuthTab(m){
+  authMode=m;
+  document.getElementById('tabIn').className='tabbtn'+(m==='in'?' on':'');
+  document.getElementById('tabUp').className='tabbtn'+(m==='up'?' on':'');
+  document.getElementById('authTitle').textContent = m==='in' ? 'Sign in to Fulcrum' : 'Create your account';
+  document.getElementById('authSubmit').textContent = m==='in' ? 'Sign in' : 'Sign up';
+}
+async function doAuth(){
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPass').value;
+  if(!email||!password) return toast('Enter email and password');
+  const fn = authMode==='in' ? sb.auth.signInWithPassword({email,password}) : sb.auth.signUp({email,password});
+  const {data,error} = await fn;
+  if(error) return toast(error.message);
+  if(authMode==='up' && !data.session) return toast('Check your email to confirm, then sign in');
+  if(data.user){ await onLogin(data.user); closeAuth(); toast('Welcome, '+data.user.email); showView(activeView); }
+}
+document.getElementById('balBtn').onclick=()=>{ if(!user) openAuth(); else if(confirm('Sign out?')){ sb.auth.signOut(); user=null; profile=null; document.getElementById('balBtn').textContent='Sign in'; document.getElementById('newMarketBtn').style.display='none'; showView('markets'); } };
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2000); }
+
+function buildNav(){
+  const nav=document.getElementById('nav'); nav.innerHTML='';
+  CATS.forEach(c=>{ const b=document.createElement('button'); b.textContent=c; b.className=(c===activeCat&&activeView==='markets')?'on':''; b.onclick=()=>{activeCat=c; showView('markets');}; nav.appendChild(b); });
+  [["Portfolio","portfolio"],["Leaderboard","leaderboard"]].forEach(([label,id])=>{ const b=document.createElement('button'); b.textContent=label; b.className=activeView===id?'on':''; b.onclick=()=>showView(id); nav.appendChild(b); });
+}
+function showView(v, marketId){
+  activeView=v;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  if(v==='markets'){ document.getElementById('view-markets').classList.add('on'); renderMarkets(); }
+  if(v==='detail'){ document.getElementById('view-detail').classList.add('on'); renderDetail(marketId); }
+  if(v==='portfolio'){ document.getElementById('view-portfolio').classList.add('on'); if(!requireLogin()) return; renderPortfolio(); }
+  if(v==='leaderboard'){ document.getElementById('view-leaderboard').classList.add('on'); renderLeaderboard(); }
+  if(v==='create'){ document.getElementById('view-create').classList.add('on'); if(!requireLogin()) return; renderCreate(); }
+  buildNav(); window.scrollTo(0,0);
+}
+
+function renderMarkets(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  const grid=document.getElementById('marketGrid');
+  const list=markets.filter(m=>(activeCat==='All'||m.cat===activeCat)&&m.title.toLowerCase().includes(q));
+  grid.innerHTML=list.length? list.map(m=>`
+    <div class="card" onclick="showView('detail','${m.id}')">
+      <div class="cat">${m.cat}</div><h3>${m.title}</h3>
+      <div class="probrow"><span class="num">${Math.round(m.prob*100)}%</span><span style="color:var(--bone-dim);font-size:12px">chance</span></div>
+      <div class="bar"><i style="width:${m.prob*100}%"></i></div>
+      <footer><span>$${(m.vol/1000).toFixed(0)}k vol</span><span>shared market</span></footer>
+    </div>`).join('') : `<div class="empty">No markets match "${q}".</div>`;
+}
+document.addEventListener('input', e=>{ if(e.target.id==='search') renderMarkets(); });
+
+async function renderDetail(id){
+  currentMarketId=id;
+  const m=markets.find(x=>x.id===id); if(!m) return;
+  const el=document.getElementById('view-detail');
+  const pts=m.history&&m.history.length?m.history:[m.prob];
+  const w=560,h=150;
+  const path=pts.map((p,i)=>`${(i/Math.max(1,pts.length-1)*w).toFixed(1)},${(h-p*h).toFixed(1)}`).join(' ');
+  const {data:cmts} = await sb.from('comments').select('*').eq('market_id',id).order('created_at',{ascending:false});
+  el.innerHTML=`
+    <button class="back" onclick="showView('markets')">← Back to markets</button>
+    <div class="cat">${m.cat}</div><div class="dtitle">${m.title}</div>
+    <div class="dgrid"><div>
+      <div class="panel chartbig"><div class="num">${Math.round(m.prob*100)}% <span style="font-size:14px;color:var(--bone-dim);font-weight:500">chance of YES</span></div>
+        <svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${path}" fill="none" stroke="var(--yes)" stroke-width="2"/></svg></div>
+      <div class="panel orderbook" style="margin-top:14px"><h4 style="font-size:13px;color:var(--bone-dim);margin-bottom:10px;font-weight:500">Order book (simulated depth)</h4><table>${genOrderRows(m.prob)}</table></div>
+      <div class="panel comments" style="margin-top:14px"><h4 style="font-size:13px;color:var(--bone-dim);margin-bottom:10px;font-weight:500">Discussion</h4>
+        <textarea id="cInput" placeholder="Share your take…"></textarea><button class="btn" onclick="postComment('${m.id}')">Post</button>
+        <div style="margin-top:10px">${(cmts||[]).map(c=>`<div class="comment"><b>${c.user_email}</b> <span>${new Date(c.created_at).toLocaleString()}</span><div>${c.text}</div></div>`).join('')||'<div class="empty">No comments yet.</div>'}</div></div>
+    </div>
+    <div class="panel trade"><h4>Trade</h4>
+      <div class="side"><button id="btnYes" class="${tradeSide==='yes'?'yesOn':''}" onclick="setSide('yes')">YES ${Math.round(m.prob*100)}¢</button><button id="btnNo" class="${tradeSide==='no'?'noOn':''}" onclick="setSide('no')">NO ${Math.round((1-m.prob)*100)}¢</button></div>
+      <div class="amtrow"><button onclick="setAmt(10)">+$10</button><button onclick="setAmt(25)">+$25</button><button onclick="setAmt(100)">+$100</button><button onclick="setAmt(0,true)">Max</button></div>
+      <input type="number" id="amtInput" value="20" min="1" oninput="updateSum('${m.id}')">
+      <div class="tradesum"><span>Avg price</span><span id="avgPrice">—</span></div>
+      <div class="tradesum"><span>Shares</span><span id="sharesOut">—</span></div>
+      <div class="tradesum"><span>Potential payout</span><span id="payout">—</span></div>
+      <button class="btn" style="width:100%" onclick="executeTrade('${m.id}')">Place trade</button>
+    </div></div>`;
+  updateSum(id);
+}
+function genOrderRows(prob){
+  let rows='<tr><td style="color:var(--bone-dim)">Price</td><td style="color:var(--bone-dim)">Shares</td><td style="color:var(--bone-dim);text-align:right">Side</td></tr>';
+  for(let i=0;i<4;i++){const p=Math.min(0.98,prob+0.01*(i+1)*2);rows+=`<tr><td>${Math.round(p*100)}¢</td><td>${(200+Math.random()*800|0)}</td><td style="text-align:right;color:var(--no)">ask</td></tr>`;}
+  for(let i=0;i<4;i++){const p=Math.max(0.02,prob-0.01*(i+1)*2);rows+=`<tr><td>${Math.round(p*100)}¢</td><td>${(200+Math.random()*800|0)}</td><td style="text-align:right;color:var(--yes)">bid</td></tr>`;}
+  return rows;
+}
+function setSide(s){ tradeSide=s; document.getElementById('btnYes').className=s==='yes'?'yesOn':''; document.getElementById('btnNo').className=s==='no'?'noOn':''; updateSum(currentMarketId); }
+function setAmt(v,max){ const inp=document.getElementById('amtInput'); inp.value = max? Math.floor(profile?profile.balance:0) : (+inp.value+v); updateSum(currentMarketId); }
+function updateSum(id){
+  const m=markets.find(x=>x.id===id); if(!m) return;
+  const amt=Math.max(0,+document.getElementById('amtInput').value||0);
+  const price = tradeSide==='yes'? m.prob : (1-m.prob);
+  const shares = price>0? amt/price : 0;
+  document.getElementById('avgPrice').textContent=Math.round(price*100)+'¢';
+  document.getElementById('sharesOut').textContent=shares.toFixed(2);
+  document.getElementById('payout').textContent='$'+shares.toFixed(2)+' if '+tradeSide.toUpperCase()+' wins';
+}
+async function executeTrade(id){
+  if(!requireLogin()) return;
+  const amt=Math.max(0,+document.getElementById('amtInput').value||0);
+  if(amt<=0) return toast('Enter an amount first');
+  const {error} = await sb.rpc('place_trade',{p_market_id:id,p_side:tradeSide,p_amount:amt});
+  if(error) return toast(error.message);
+  const {data} = await sb.from('profiles').select('*').eq('id',user.id).single();
+  profile=data; document.getElementById('balBtn').innerHTML=`$<span>${Math.round(profile.balance)}</span>`;
+  toast('Trade placed');
+  await loadMarkets(); renderDetail(id);
+}
+async function postComment(id){
+  if(!requireLogin()) return;
+  const txt=document.getElementById('cInput').value.trim(); if(!txt) return;
+  const {error} = await sb.from('comments').insert({market_id:id,user_email:user.email,text:txt});
+  if(error) return toast(error.message);
+  renderDetail(id);
+}
+
+async function renderPortfolio(){
+  const {data:trades} = await sb.from('trades').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+  const el=document.getElementById('view-portfolio');
+  const rows=(trades||[]).map(p=>{
+    const m=markets.find(x=>x.id===p.market_id);
+    const curPrice = m? (p.side==='yes'?m.prob:1-m.prob) : p.price;
+    const curVal=p.shares*curPrice, pl=curVal-p.amount;
+    return `<tr><td>${m?m.title:p.market_id}</td><td class="pos-${p.side}">${p.side.toUpperCase()}</td><td>${p.shares.toFixed(2)}</td><td>${Math.round(p.price*100)}¢</td><td>${Math.round(curPrice*100)}¢</td><td class="${pl>=0?'up':'down'}">${pl>=0?'+':''}$${pl.toFixed(2)}</td></tr>`;
+  }).join('');
+  el.innerHTML=`<h2 style="font-size:22px;margin-bottom:4px">Portfolio</h2><p style="color:var(--bone-dim);font-size:14px">Cash balance: $${profile.balance.toFixed(2)}</p>
+  ${trades&&trades.length? `<table class="postable"><tr><th>Market</th><th>Side</th><th>Shares</th><th>Avg</th><th>Now</th><th>P&L</th></tr>${rows}</table>` : `<div class="empty">No positions yet. Place a trade on any market to see it here.</div>`}`;
+}
+
+async function renderLeaderboard(){
+  const {data:profiles} = await sb.from('profiles').select('*');
+  const {data:trades} = await sb.from('trades').select('*');
+  const rows=(profiles||[]).map(p=>{
+    const own=(trades||[]).filter(t=>t.user_id===p.id);
+    const pl=own.reduce((s,t)=>{const m=markets.find(x=>x.id===t.market_id); const cp=m?(t.side==='yes'?m.prob:1-m.prob):t.price; return s+(t.shares*cp-t.amount);},0);
+    return {n:p.email, pl};
+  }).sort((a,b)=>b.pl-a.pl);
+  document.getElementById('view-leaderboard').innerHTML=`<h2 style="font-size:22px;margin-bottom:14px">Leaderboard</h2><div class="panel">${rows.length?rows.map((r,i)=>`<div class="lb-row"><span><span class="rank">#${i+1}</span>${r.n}</span><span class="${r.pl>=0?'up':'down'}">${r.pl>=0?'+':''}$${r.pl.toFixed(0)}</span></div>`).join(''):'<div class="empty">No traders yet.</div>'}</div>`;
+}
+
+function renderCreate(){
+  document.getElementById('view-create').innerHTML=`
+    <button class="back" onclick="showView('markets')">← Back to markets</button>
+    <h2 style="font-size:22px;margin-bottom:4px">Create a market</h2>
+    <p style="color:var(--bone-dim);font-size:14px">Visible to everyone. Only your account can do this.</p>
+    <div class="panel form" style="max-width:480px;margin-top:16px">
+      <label>Question</label><input id="nqTitle" placeholder="Will X happen by [date]?">
+      <label>Category</label><select id="nqCat">${CATS.filter(c=>c!=='All').map(c=>`<option>${c}</option>`).join('')}</select>
+      <label>Initial probability (%)</label><input id="nqProb" type="number" value="50" min="1" max="99">
+      <button class="btn" style="margin-top:18px" onclick="createMarket()">Launch market</button>
+    </div>`;
+}
+async function createMarket(){
+  const title=document.getElementById('nqTitle').value.trim();
+  const cat=document.getElementById('nqCat').value;
+  const prob=Math.max(1,Math.min(99,+document.getElementById('nqProb').value||50))/100;
+  if(!title) return toast('Give your market a question');
+  const id='m'+Date.now();
+  const {error} = await sb.from('markets').insert({id,title,cat,prob,vol:0,history:[prob],created_by:user.email});
+  if(error) return toast(error.message);
+  toast('Market launched'); await loadMarkets(); showView('detail',id);
+}
+
+init();
+</script>
+</body>
+</html>
